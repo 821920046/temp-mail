@@ -1,0 +1,25 @@
+{
+  "name": "worker",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "tsc --noEmit",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "hono": "^4.4.0",
+    "jose": "^5.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240605.0",
+    "@cloudflare/vitest-pool-workers": "^0.4.0",
+    "vitest": "^1.6.0",
+    "typescript": "^5.5.0",
+    "wrangler": "^3.60.0"
+  }
+}

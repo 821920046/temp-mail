@@ -1,0 +1,48 @@
+name = "temp-mail"
+main = "src/index.ts"
+compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ============================================================
+# 本配置仅依赖 Cloudflare 免费额度服务：
+#   Workers / D1 / KV / R2 / Email Routing（+ 可选免费 Workers AI）
+# 不使用付费特性：无 Queues、无标准 Durable Objects。
+# ============================================================
+
+# ===== 静态变量（非敏感）=====
+[vars]
+MAIL_DOMAINS = "example.com"
+SEND_PROVIDER = "none"
+ATTACHMENT_TTL_DAYS = "3"
+MAIL_RETENTION_DAYS = "7"
+
+# ===== D1：权威源 + 限流计数（免费）=====
+[[d1_databases]]
+binding = "DB"
+database_name = "temp-mail"
+database_id = "REPLACE_WITH_D1_ID"
+
+# ===== KV：热缓存 / 轻量配置（免费）=====
+[[kv_namespaces]]
+binding = "KV"
+id = "REPLACE_WITH_KV_ID"
+
+# ===== R2：附件对象存储（免费 10GB）=====
+[[r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "temp-mail-attachments"
+
+# ===== Workers AI（可选，免费额度；不需要可注释掉，代码会自动降级为正则提取）=====
+[ai]
+binding = "AI"
+
+# ===== 定时任务：附件/邮件/限流清理（免费）=====
+[triggers]
+crons = ["0 */6 * * *"]
+
+# ============================================================
+# （可选）如需可观测性指标看板，可启用 Analytics Engine（有免费额度）：
+# 默认不启用；未绑定时 metrics 会自动降级为 console.log。
+# [[analytics_engine_datasets]]
+# binding = "METRICS"
+# dataset = "temp_mail_metrics"
