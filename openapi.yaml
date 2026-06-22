@@ -1,0 +1,78 @@
+openapi: 3.0.3
+info:
+  title: temp-mail API
+  version: 2.0.0
+  description: 临时邮箱开放 API（P3）。便于第三方与 AI Agent 集成。
+servers:
+  - url: https://temp-mail.example.workers.dev
+paths:
+  /health:
+    get:
+      summary: 健康检查
+      responses:
+        "200":
+          description: OK
+  /api/auth/login:
+    post:
+      summary: 凭证登录，返回会话 token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mailbox: { type: string }
+      responses:
+        "200":
+          description: token
+        "429":
+          description: 限流
+  /api/auth/one-time:
+    post:
+      summary: 生成一次性自动登录链接
+      responses:
+        "200":
+          description: token + url
+  /api/mailbox/mails:
+    get:
+      summary: 获取邮箱邮件列表（热优先，冷回源）
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: 邮件列表
+        "401":
+          description: 未授权
+  /api/mailbox/attachment/{key}:
+    get:
+      summary: 下载附件
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 附件二进制
+  /api/admin/stats:
+    get:
+      summary: 管理统计概览
+      responses:
+        "200":
+          description: 统计数据
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

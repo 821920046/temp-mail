@@ -1,0 +1,21 @@
+{
+  "name": "temp-mail",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Free temporary domain email on Cloudflare — optimized edition",
+  "license": "MIT",
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "pnpm --filter worker dev",
+    "build": "pnpm --filter worker build && pnpm --filter frontend build",
+    "test": "pnpm --filter worker test",
+    "lint": "prettier --check . && eslint .",
+    "format": "prettier --write .",
+    "deploy": "bash scripts/deploy.sh",
+    "setup": "node scripts/setup.mjs"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.0",
+    "typescript": "^5.5.0"
+  }
+}
