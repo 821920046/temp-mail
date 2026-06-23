@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue"
-import { api, setToken } from "./api/client"
+import { api, setSitePassword, setToken } from "./api/client"
 
 interface MailMeta {
 	id: string
@@ -15,9 +15,13 @@ interface MailMeta {
 
 const TIMER_MAX = 15
 const STORE_ADDR = "temp_mail_address"
+const STORE_SITE_OK = "temp_mail_site_ok"
 
-const view = ref<"login" | "inbox">("login")
+const view = ref<"gate" | "generator" | "inbox">("gate")
+const passwordInput = ref("")
 const addressInput = ref("")
+const selectedDomain = ref("")
+const generatedAddress = ref("")
 const currentAddress = ref("")
 const mails = ref<MailMeta[]>([])
 const selectedId = ref<string | null>(null)
@@ -60,8 +64,8 @@ const statusText = computed(() => (polling.value ? "SYNCING…" : "LIVE"))
 const copyLabel = computed(() => (copied.value ? "已复制" : "复制"))
 const domainHint = computed(() =>
 	domains.value.length
-		? "可用域名 " + domains.value.length + " 个，点“随机生成”即可"
-		: "",
+		? "已从后台读取 " + domains.value.length + " 个可用域名，请选择一个后随机生成邮箱"
+		: "后台暂未返回可用域名，请检查 Worker 的 MAIL_DOMAINS 配置",
 )
 const progressStyle = computed(() => {
 	const pct = Math.max(0, Math.min(100, (timer.value / TIMER_MAX) * 100))
@@ -186,6 +190,33 @@ function stopCountdown() {
 	}
 }
 
+async function loadDomains() {
+	const dr = await api.domains()
+	domains.value = (dr && dr.domains) || []
+	if (!selectedDomain.value && domains.value.length > 0) selectedDomain.value = domains.value[0]
+}
+
+async function verifySite() {
+	const pw = passwordInput.value.trim()
+	if (!pw) {
+		error.value = "请输入登录密码"
+		return
+	}
+	error.value = ""
+	loading.value = true
+	try {
+		await api.verifySitePassword(pw)
+		setSitePassword(pw)
+		localStorage.setItem(STORE_SITE_OK, "1")
+		await loadDomains()
+		view.value = "generator"
+	} catch (e: any) {
+		error.value = "验证失败：" + (e && e.message ? e.message : String(e))
+	} finally {
+		loading.value = false
+	}
+}
+
 function randomLocal() {
 	const adj = ["swift","lunar","nova","cobalt","amber","quartz","zen","echo","pixel","flux","onyx","vivid","misty","solar","cyan","rapid","silent","crimson"]
 	const noun = ["fox","raven","comet","cedar","otter","falcon","maple","drift","ember","harbor","willow","koi","lynx","sage","wave","pine","nova","orbit"]
@@ -194,19 +225,23 @@ function randomLocal() {
 	const num = Math.floor(1000 + Math.random() * 9000)
 	return a + n + num
 }
-function pickDomain() {
-	if (domains.value.length === 0) return ""
-	return domains.value[Math.floor(Math.random() * domains.value.length)]
+function generateAddress() {
+	if (!selectedDomain.value) {
+		error.value = "请先选择一个域名"
+		return
+	}
+	error.value = ""
+	generatedAddress.value = randomLocal() + "@" + selectedDomain.value
+	addressInput.value = generatedAddress.value
 }
 async function generateAndLogin() {
 	if (loading.value || generating.value) return
-	const d = pickDomain()
-	if (!d) {
-		error.value = "后台暂未配置可用域名（请在 Worker 的 MAIL_DOMAINS 中填写）"
+	if (!selectedDomain.value) {
+		error.value = "请先选择一个域名"
 		return
 	}
 	generating.value = true
-	addressInput.value = randomLocal() + "@" + d
+	generateAddress()
 	try {
 		await login()
 	} finally {
@@ -249,42 +284,27 @@ function logout() {
 	readIds.value = new Set()
 	currentAddress.value = ""
 	addressInput.value = ""
-	view.value = "login"
+	generatedAddress.value = ""
+	view.value = "generator"
 }
 
 onMounted(async () => {
-	try {
-		const dr = await api.domains()
-		domains.value = (dr && dr.domains) || []
-	} catch (e) {
-		/* ignore */
-	}
-	const savedAddr = localStorage.getItem(STORE_ADDR)
-	const urlToken = new URLSearchParams(location.search).get("token")
-	const savedToken = localStorage.getItem("token") || urlToken
-	if (savedAddr && savedToken) {
-		currentAddress.value = savedAddr
-		view.value = "inbox"
-		await refresh()
-		startCountdown()
-	}
+	// 严格按流程：打开前端页面时，先显示站点密码验证页。
+	// 验证通过后再加载后台域名，进入邮箱生成页。
+	view.value = "gate"
 })
 onUnmounted(() => stopCountdown())
 </script>
 
 <template>
-	<!-- LOGIN / GATEWAY -->
+	<!-- PASSWORD GATEWAY -->
 	<div
-		v-if="view === 'login'"
+		v-if="view === 'gate'"
 		class="h-screen flex flex-col items-center justify-center px-4 animate-fade-in"
 	>
 		<div class="relative mb-6">
-			<div
-				class="absolute inset-0 bg-nebula-500 blur-2xl opacity-25 rounded-full scale-150"
-			></div>
-			<div
-				class="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-nebula-500 to-nebula-700 flex items-center justify-center shadow-lg shadow-nebula-500/30"
-			>
+			<div class="absolute inset-0 bg-nebula-500 blur-2xl opacity-25 rounded-full scale-150"></div>
+			<div class="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-nebula-500 to-nebula-700 flex items-center justify-center shadow-lg shadow-nebula-500/30">
 				<svg class="w-8 h-8 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>
 			</div>
 		</div>
@@ -298,45 +318,92 @@ onUnmounted(() => stopCountdown())
 
 		<div class="w-full max-w-md">
 			<div class="relative group">
-				<div
-					class="absolute -inset-0.5 bg-gradient-to-r from-nebula-500/40 to-violet-500/40 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"
-				></div>
-				<div
-					class="relative bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl p-6 shadow-2xl"
-				>
-					<label class="block text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2">输入你的临时邮箱地址</label>
+				<div class="absolute -inset-0.5 bg-gradient-to-r from-nebula-500/40 to-violet-500/40 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+				<div class="relative bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl p-6 shadow-2xl">
+					<label class="block text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2">输入站点登录密码</label>
 					<input
-						v-model="addressInput"
-						@keyup.enter="login"
-						type="text"
-						placeholder="yourname@yourdomain.com"
+						v-model="passwordInput"
+						@keyup.enter="verifySite"
+						type="password"
+						placeholder="请输入访问密码"
 						class="block w-full px-4 py-3 rounded-xl bg-slate-950/60 border border-slate-700 text-slate-200 placeholder-slate-600 font-mono-jb text-sm focus:outline-none focus:ring-2 focus:ring-nebula-500/50 focus:border-nebula-500/50 transition"
 					/>
 					<button
-						@click="login"
+						@click="verifySite"
 						:disabled="loading"
 						class="mt-4 w-full inline-flex items-center justify-center gap-2 text-sm font-semibold text-white bg-gradient-to-r from-nebula-600 to-nebula-500 hover:from-nebula-500 hover:to-nebula-400 shadow-lg shadow-nebula-500/20 rounded-xl px-4 py-3 transition disabled:opacity-50"
 					>
-						<span v-text="loading ? '连接中…' : '进入收件箱'"></span>
+						<span v-text="loading ? '验证中…' : '验证并继续'"></span>
 					</button>
+					<p v-if="error" class="mt-3 text-xs text-red-400" v-text="error"></p>
+					<p class="mt-4 text-[11px] text-slate-600 leading-relaxed">通过站点密码后，才能选择域名并生成临时邮箱地址。</p>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- ADDRESS GENERATOR -->
+	<div
+		v-if="view === 'generator'"
+		class="h-screen flex flex-col items-center justify-center px-4 animate-fade-in"
+	>
+		<div class="w-full max-w-xl">
+			<div class="mb-7 text-center">
+				<div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-nebula-500 to-violet-600 shadow-lg shadow-nebula-500/30 mb-4">
+					<svg class="w-8 h-8 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
+				</div>
+				<h1 class="text-3xl font-bold text-white">生成临时邮箱</h1>
+				<p class="mt-2 text-sm text-slate-500" v-text="domainHint"></p>
+			</div>
+
+			<div class="relative group">
+				<div class="absolute -inset-0.5 bg-gradient-to-r from-nebula-500/40 to-violet-500/40 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+				<div class="relative bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+					<div>
+						<label class="block text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2">选择收件域名</label>
+						<select
+							v-model="selectedDomain"
+							class="block w-full px-4 py-3 rounded-xl bg-slate-950/60 border border-slate-700 text-slate-200 font-mono-jb text-sm focus:outline-none focus:ring-2 focus:ring-nebula-500/50 focus:border-nebula-500/50 transition"
+						>
+							<option v-for="d in domains" :key="d" :value="d" v-text="d"></option>
+						</select>
+					</div>
+
+					<div>
+						<label class="block text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2">随机邮箱地址</label>
+						<div class="flex gap-2">
+							<input
+								v-model="generatedAddress"
+								readonly
+								placeholder="点击下方按钮随机生成"
+								class="flex-1 min-w-0 px-4 py-3 rounded-xl bg-slate-950/60 border border-slate-700 text-slate-200 placeholder-slate-600 font-mono-jb text-sm focus:outline-none"
+							/>
+							<button
+								@click="generateAddress"
+								class="shrink-0 inline-flex items-center justify-center text-xs font-semibold text-nebula-200 bg-slate-800/70 border border-nebula-500/30 hover:bg-slate-800 hover:border-nebula-500/60 rounded-xl px-4 transition"
+							>
+								换一个
+							</button>
+						</div>
+					</div>
+
 					<button
 						@click="generateAndLogin"
-						:disabled="loading"
-						class="mt-3 w-full inline-flex items-center justify-center gap-2 text-sm font-semibold text-nebula-200 bg-slate-800/70 border border-nebula-500/30 hover:bg-slate-800 hover:border-nebula-500/60 rounded-xl px-4 py-3 transition disabled:opacity-50"
+						:disabled="loading || generating || domains.length === 0"
+						class="w-full inline-flex items-center justify-center gap-2 text-sm font-semibold text-white bg-gradient-to-r from-nebula-600 to-nebula-500 hover:from-nebula-500 hover:to-nebula-400 shadow-lg shadow-nebula-500/20 rounded-xl px-4 py-3 transition disabled:opacity-50"
 					>
-						<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8" /><line x1="4" y1="20" x2="21" y2="3" /><polyline points="21 16 21 21 16 21" /><line x1="15" y1="15" x2="21" y2="21" /><line x1="4" y1="4" x2="9" y2="9" /></svg>
-						<span v-text="generating ? '生成中…' : '随机生成地址'"></span>
+						<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8" /><line x1="4" y1="20" x2="21" y2="3" /></svg>
+						<span v-text="generating ? '生成并登录中…' : '随机生成并进入收件箱'"></span>
 					</button>
-					<p v-if="domainHint" class="mt-3 text-[11px] text-slate-500 text-center" v-text="domainHint"></p>
-					<p v-if="error" class="mt-3 text-xs text-red-400" v-text="error"></p>
-					<p class="mt-4 text-[11px] text-slate-600 leading-relaxed">邮件经安全网关接收，会话过期后自动清除。无需注册，输入地址即可查看。</p>
+					<p v-if="error" class="text-xs text-red-400" v-text="error"></p>
+					<p class="text-[11px] text-slate-600 leading-relaxed">邮箱地址会从你在 Worker 的 MAIL_DOMAINS 中配置的域名生成。生成后会自动进入收件箱并开始轮询新邮件。</p>
 				</div>
 			</div>
 		</div>
 	</div>
 
 	<!-- INBOX -->
-	<div v-else class="h-screen flex flex-col">
+	<div v-if="view === 'inbox'" class="h-screen flex flex-col">
 		<!-- TopBar -->
 		<header
 			class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-4 py-3 shadow-xl relative z-20"

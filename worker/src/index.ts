@@ -17,6 +17,19 @@ import { admin } from "./routes/admin"
 
 const app = new Hono<{ Bindings: Env }>()
 
+function getSitePassword(c: any): string | undefined {
+	// 为了简化部署：页面入口密码默认复用 ADMIN_PASSWORD。
+	// 如果你单独设置了 SITE_PASSWORD，则优先使用 SITE_PASSWORD。
+	return c.env.SITE_PASSWORD || c.env.ADMIN_PASSWORD
+}
+
+function sitePasswordOk(c: any): boolean {
+	const expected = getSitePassword(c)
+	if (!expected) return false
+	const headerPassword = c.req.header("x-site-password")
+	return !!headerPassword && headerPassword === expected
+}
+
 // 统一错误处理：把笼统的 500 变成可读的具体错误，便于排查（如缺表 / 缺 Secret）。
 app.onError((err, c) => {
 	console.error("[API ERROR]", err)
@@ -33,6 +46,8 @@ app.get("/health/deep", async (c) => {
 	const out: Record<string, unknown> = {
 		jwtSecret: Boolean(c.env.JWT_SECRET),
 		adminPassword: Boolean(c.env.ADMIN_PASSWORD),
+		sitePassword: Boolean(c.env.SITE_PASSWORD || c.env.ADMIN_PASSWORD),
+		sitePasswordSource: c.env.SITE_PASSWORD ? "SITE_PASSWORD" : c.env.ADMIN_PASSWORD ? "ADMIN_PASSWORD" : null,
 		mailDomains: c.env.MAIL_DOMAINS ?? null,
 		bindings: {
 			DB: Boolean(c.env.DB),
@@ -56,8 +71,20 @@ app.get("/health/deep", async (c) => {
 	return c.json(out)
 })
 
-// 公开：返回后台配置的可用收件域名（供前端随机生成邮箱地址）。不查 D1，不需鉴权。
-app.get("/api/domains", (c) => c.json({ domains: getConfig(c.env).domains }))
+// 站点入口密码验证：默认复用 ADMIN_PASSWORD；如设置了 SITE_PASSWORD，则优先用 SITE_PASSWORD。
+app.post("/api/site/login", async (c) => {
+	const { password } = await c.req.json<{ password?: string }>()
+	const expected = getSitePassword(c)
+	if (!expected) return c.json({ error: "ADMIN_PASSWORD not configured" }, 500)
+	if (!password || password !== expected) return c.json({ error: "invalid password" }, 401)
+	return c.json({ ok: true })
+})
+
+// 返回后台配置的可用收件域名（供前端生成页选择）。需先通过站点密码验证。
+app.get("/api/domains", (c) => {
+	if (!sitePasswordOk(c)) return c.json({ error: "site password required" }, 401)
+	return c.json({ domains: getConfig(c.env).domains })
+})
 
 app.route("/api/auth", auth)
 app.route("/api/mailbox", mailbox)
