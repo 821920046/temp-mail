@@ -39,6 +39,13 @@ app.onError((err, c) => {
 	)
 })
 
+app.get("/", (c) => c.json({
+	ok: true,
+	name: "temp-mail",
+	message: "Worker is running. Frontend lives on Cloudflare Pages.",
+	endpoints: ["/health", "/health/deep", "/api/site/login", "/api/domains", "/api/auth/login", "/api/mailbox/mails"],
+}))
+
 app.get("/health", (c) => c.json({ ok: true, name: "temp-mail", version: "2.1.0", tier: "free" }))
 
 // 深度自检：报告关键绑定与初始化状态，便于定位 500。无需鉴权，可直接在浏览器打开。
