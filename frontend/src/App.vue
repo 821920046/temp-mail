@@ -28,6 +28,8 @@ const timer = ref(TIMER_MAX)
 const copied = ref(false)
 const error = ref("")
 const readIds = ref<Set<string>>(new Set())
+const domains = ref<string[]>([])
+const generating = ref(false)
 const toast = ref({ visible: false, title: "", msg: "" })
 
 let countdownIv: number | undefined
@@ -56,6 +58,11 @@ const emptyText = computed(() =>
 )
 const statusText = computed(() => (polling.value ? "SYNCING…" : "LIVE"))
 const copyLabel = computed(() => (copied.value ? "已复制" : "复制"))
+const domainHint = computed(() =>
+	domains.value.length
+		? "可用域名 " + domains.value.length + " 个，点“随机生成”即可"
+		: "",
+)
 const progressStyle = computed(() => {
 	const pct = Math.max(0, Math.min(100, (timer.value / TIMER_MAX) * 100))
 	return { width: pct + "%" }
@@ -179,6 +186,34 @@ function stopCountdown() {
 	}
 }
 
+function randomLocal() {
+	const adj = ["swift","lunar","nova","cobalt","amber","quartz","zen","echo","pixel","flux","onyx","vivid","misty","solar","cyan","rapid","silent","crimson"]
+	const noun = ["fox","raven","comet","cedar","otter","falcon","maple","drift","ember","harbor","willow","koi","lynx","sage","wave","pine","nova","orbit"]
+	const a = adj[Math.floor(Math.random() * adj.length)]
+	const n = noun[Math.floor(Math.random() * noun.length)]
+	const num = Math.floor(1000 + Math.random() * 9000)
+	return a + n + num
+}
+function pickDomain() {
+	if (domains.value.length === 0) return ""
+	return domains.value[Math.floor(Math.random() * domains.value.length)]
+}
+async function generateAndLogin() {
+	if (loading.value || generating.value) return
+	const d = pickDomain()
+	if (!d) {
+		error.value = "后台暂未配置可用域名（请在 Worker 的 MAIL_DOMAINS 中填写）"
+		return
+	}
+	generating.value = true
+	addressInput.value = randomLocal() + "@" + d
+	try {
+		await login()
+	} finally {
+		generating.value = false
+	}
+}
+
 async function login() {
 	const addr = addressInput.value.trim()
 	if (!addr) {
@@ -218,6 +253,12 @@ function logout() {
 }
 
 onMounted(async () => {
+	try {
+		const dr = await api.domains()
+		domains.value = (dr && dr.domains) || []
+	} catch (e) {
+		/* ignore */
+	}
 	const savedAddr = localStorage.getItem(STORE_ADDR)
 	const urlToken = new URLSearchParams(location.search).get("token")
 	const savedToken = localStorage.getItem("token") || urlToken
@@ -278,6 +319,15 @@ onUnmounted(() => stopCountdown())
 					>
 						<span v-text="loading ? '连接中…' : '进入收件箱'"></span>
 					</button>
+					<button
+						@click="generateAndLogin"
+						:disabled="loading"
+						class="mt-3 w-full inline-flex items-center justify-center gap-2 text-sm font-semibold text-nebula-200 bg-slate-800/70 border border-nebula-500/30 hover:bg-slate-800 hover:border-nebula-500/60 rounded-xl px-4 py-3 transition disabled:opacity-50"
+					>
+						<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8" /><line x1="4" y1="20" x2="21" y2="3" /><polyline points="21 16 21 21 16 21" /><line x1="15" y1="15" x2="21" y2="21" /><line x1="4" y1="4" x2="9" y2="9" /></svg>
+						<span v-text="generating ? '生成中…' : '随机生成地址'"></span>
+					</button>
+					<p v-if="domainHint" class="mt-3 text-[11px] text-slate-500 text-center" v-text="domainHint"></p>
 					<p v-if="error" class="mt-3 text-xs text-red-400" v-text="error"></p>
 					<p class="mt-4 text-[11px] text-slate-600 leading-relaxed">邮件经安全网关接收，会话过期后自动清除。无需注册，输入地址即可查看。</p>
 				</div>

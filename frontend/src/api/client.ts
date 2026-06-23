@@ -22,6 +22,8 @@ async function req(path: string, init: RequestInit = {}) {
 }
 
 export const api = {
+	/** 获取后台配置的可用收件域名列表（公开，无需登录）。 */
+	domains: () => req("/domains"),
 	login: (mailbox: string) =>
 		req("/auth/login", { method: "POST", body: JSON.stringify({ mailbox }) }),
 	listMails: () => req("/mailbox/mails"),

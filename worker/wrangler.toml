@@ -20,12 +20,12 @@ MAIL_RETENTION_DAYS = "7"
 [[d1_databases]]
 binding = "DB"
 database_name = "temp-mail"
-database_id = "e47e90da-0490-466f-988d-d4569bdd1a58"
+database_id = "REPLACE_WITH_D1_ID"
 
 # ===== KV：热缓存 / 轻量配置（免费）=====
 [[kv_namespaces]]
 binding = "KV"
-id = "20650da6c6e4409f8b92fc1c01462413"
+id = "REPLACE_WITH_KV_ID"
 
 # ===== R2：附件对象存储（免费 10GB）=====
 [[r2_buckets]]
