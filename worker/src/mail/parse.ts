@@ -29,7 +29,7 @@ type MimePart = {
 
 export async function parseEmail(raw: ArrayBuffer): Promise<ParsedMail> {
 	// TODO: 如后续接入 mail-parser-wasm，可在这里替换为 WASM 解析器。
-	const rawText = new TextDecoder("utf-8", { fatal: false }).decode(raw)
+	const rawText = new TextDecoder("utf-8", { fatal: false, ignoreBOM: false }).decode(raw)
 	return fallbackParse(rawText)
 }
 
@@ -235,12 +235,12 @@ function decodeBytes(bytes: Uint8Array, charset: string): string {
 	if (normalized === "gbk") labels.unshift("gb18030")
 	for (const label of labels) {
 		try {
-			return new TextDecoder(label, { fatal: false }).decode(bytes)
+			return new TextDecoder(label, { fatal: false, ignoreBOM: false }).decode(bytes)
 		} catch {
 			// 某些 Worker 运行时可能不支持少数 legacy charset，继续回退。
 		}
 	}
-	return new TextDecoder("utf-8", { fatal: false }).decode(bytes)
+	return new TextDecoder("utf-8", { fatal: false, ignoreBOM: false }).decode(bytes)
 }
 
 function htmlToText(html: string): string {
