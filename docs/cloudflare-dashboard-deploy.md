@@ -43,7 +43,7 @@
 
 ## 6. 配置环境变量与 Secret（Settings → Variables and Secrets）
 - **明文变量（Plaintext）**：`MAIL_DOMAINS`=你的域名、`SEND_PROVIDER`=`none`、`ATTACHMENT_TTL_DAYS`=`3`、`MAIL_RETENTION_DAYS`=`7`。
-- **加密 Secret（Encrypt）**：`JWT_SECRET`（强随机）、`ADMIN_PASSWORD`；可选 `SITE_PASSWORD`、`RESEND_API_KEY`、`TELEGRAM_BOT_TOKEN`。
+- **加密 Secret（Encrypt）**：`JWT_SECRET`（强随机）、`ADMIN_PASSWORD`；可选 `RESEND_API_KEY`、`TELEGRAM_BOT_TOKEN`。
 
 ## 7. 配置定时触发器（Cron）
 - Worker → **Settings → Triggers → Cron Triggers → Add** → 填 `0 */6 * * *`（每 6 小时清理一次）。
