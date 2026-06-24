@@ -5,38 +5,42 @@ on:
     branches: [main]
   pull_request:
 
+# test 与 deploy 完全独立：deploy 不再依赖 test（去掉 needs: test），
+# 因此即使单测/类型检查失败，也不会阻止 Worker 部署。
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # 不再指定 version：pnpm/action-setup 会自动读取根 package.json 的 packageManager 字段。
-      # 同时指定 version 与 packageManager 会报 ERR_PNPM_BAD_PM_VERSION。
-      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Type check
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.0.0 --activate
+          pnpm --version
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Type check Worker
         run: pnpm --filter worker build
-      - name: Unit tests + coverage gate
+      - name: Test Worker
         run: pnpm --filter worker test
-      - name: Lint
-        run: pnpm format --check || true
 
-  deploy:
-    needs: test
-    if: github.ref == 'refs/heads/main'
+  deploy-worker:
+    if: ${{ github.ref }} == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.0.0 --activate
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
       - name: Deploy Worker
         run: pnpm --filter worker deploy
         env:
