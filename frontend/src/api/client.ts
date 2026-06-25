@@ -29,7 +29,7 @@ async function req(path: string, init: RequestInit = {}) {
 }
 
 export const api = {
-	/** 站点入口密码验证，对应 Worker Secret: SITE_PASSWORD。 */
+	/** 站点入口密码验证，对应 Worker Secret: ADMIN_PASSWORD。 */
 	verifySitePassword: (password: string) =>
 		req("/site/login", { method: "POST", body: JSON.stringify({ password }) }),
 	/** 获取后台配置的可用收件域名列表。 */
@@ -37,4 +37,16 @@ export const api = {
 	login: (mailbox: string) =>
 		req("/auth/login", { method: "POST", body: JSON.stringify({ mailbox }) }),
 	listMails: () => req("/mailbox/mails"),
+	/** 下载附件（带鉴权头），返回 Blob。key 按路径段逐个编码以兼容空格 / 中文。 */
+	async downloadAttachment(key: string): Promise<Blob> {
+		const encoded = key.split("/").map(encodeURIComponent).join("/")
+		const res = await fetch(base + "/mailbox/attachment/" + encoded, {
+			headers: {
+				...(sitePassword ? { "X-Site-Password": sitePassword } : {}),
+				...(token ? { Authorization: `Bearer ${token}` } : {}),
+			},
+		})
+		if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
+		return res.blob()
+	},
 }

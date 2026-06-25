@@ -39,11 +39,21 @@ mailbox.get("/mails", async (c) => {
 mailbox.get("/attachment/*", async (c) => {
 	const addr = await requireAuth(c)
 	if (!addr) return c.json({ error: "unauthorized" }, 401)
-	const key = c.req.path.replace(/^\/attachment\//, "")
+	let key = c.req.path.replace(/^.*\/attachment\//, "")
+	// 文件名可能含空格 / 中文等，前端会对 key 进行编码，这里解码还原。
+	try {
+		key = decodeURIComponent(key)
+	} catch {
+		// 保留原始值
+	}
 	if (!key.startsWith(`att/${addr}/`)) return c.json({ error: "forbidden" }, 403)
 	const obj = await c.env.ATTACHMENTS.get(key)
 	if (!obj) return c.json({ error: "not found" }, 404)
+	const filename = key.slice(key.lastIndexOf("/") + 1)
 	return new Response(obj.body, {
-		headers: { "content-type": obj.httpMetadata?.contentType ?? "application/octet-stream" },
+		headers: {
+			"content-type": obj.httpMetadata?.contentType ?? "application/octet-stream",
+			"content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+		},
 	})
 })

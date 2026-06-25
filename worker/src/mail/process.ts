@@ -3,7 +3,7 @@
  *   解析 → 滥用打分 → AI/正则提取 → 写热缓存(KV) → D1 归档 → 推送
  */
 import type { Env, ProcessTask } from "../env"
-import type { MailMeta } from "./types"
+import type { MailMeta, AttachmentMeta } from "./types"
 import { parseEmail } from "./parse"
 import { scoreAbuse } from "../security/abuse"
 import { extractInsights } from "../ai/extract"
@@ -34,10 +34,17 @@ export async function processMail(env: Env, task: ProcessTask): Promise<void> {
 		return
 	}
 
-	// 3) 附件落盘（带 TTL）
+	// 3) 附件落盘（带 TTL），同时收集元数据供前端列出 / 下载
+	const attachmentsMeta: AttachmentMeta[] = []
 	for (const att of parsed.attachments) {
 		const key = `att/${task.mailbox}/${task.receivedAt}-${att.filename}`
 		await putAttachment(env, key, att.bytes, att.contentType)
+		attachmentsMeta.push({
+			key,
+			filename: att.filename,
+			contentType: att.contentType,
+			size: att.bytes.length,
+		})
 	}
 
 	// 4) AI / 正则提取
@@ -53,6 +60,7 @@ export async function processMail(env: Env, task: ProcessTask): Promise<void> {
 		receivedAt: task.receivedAt,
 		code: insights.code,
 		category: insights.category,
+		attachments: attachmentsMeta,
 	}
 	await pushHot(env, task.mailbox, meta)
 

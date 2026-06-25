@@ -2,6 +2,12 @@
 import { ref, computed, watch, onMounted, onUnmounted } from "vue"
 import { api, setSitePassword, setToken } from "./api/client"
 
+interface AttachmentMeta {
+	key: string
+	filename: string
+	contentType: string
+	size: number
+}
 interface MailMeta {
 	id: string
 	from: string
@@ -11,6 +17,7 @@ interface MailMeta {
 	receivedAt: number
 	code?: string
 	category?: string
+	attachments?: AttachmentMeta[]
 }
 
 const TIMER_MAX = 15
@@ -136,6 +143,35 @@ async function copyAddress() {
 	copied.value = true
 	if (copiedTo) clearTimeout(copiedTo)
 	copiedTo = window.setTimeout(() => (copied.value = false), 2000)
+}
+const downloadingKey = ref<string | null>(null)
+async function downloadAttachment(att: AttachmentMeta) {
+	if (downloadingKey.value) return
+	downloadingKey.value = att.key
+	try {
+		const blob = await api.downloadAttachment(att.key)
+		const url = URL.createObjectURL(blob)
+		const a = document.createElement("a")
+		a.href = url
+		a.download = att.filename || "attachment"
+		document.body.appendChild(a)
+		a.click()
+		a.remove()
+		setTimeout(() => URL.revokeObjectURL(url), 1000)
+	} catch (e: any) {
+		showToast("下载失败", (e && e.message ? e.message : String(e)) + "（附件仅保留 3 天，可能已过期）")
+	} finally {
+		downloadingKey.value = null
+	}
+}
+function formatSize(n?: number): string {
+	if (!n || n <= 0) return ""
+	if (n < 1024) return n + " B"
+	if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB"
+	return (n / 1024 / 1024).toFixed(1) + " MB"
+}
+function isImageType(ct?: string): boolean {
+	return !!ct && ct.toLowerCase().startsWith("image/")
 }
 async function copyCode(c?: string) {
 	if (!c) return
@@ -717,12 +753,49 @@ onUnmounted(() => stopCountdown())
 									<span class="text-xs font-semibold uppercase tracking-wider">内容预览</span>
 								</div>
 								<p class="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap" v-text="(selectedMail && selectedMail.preview) || '（无可显示内容）'"></p>
+								<!-- 附件下载列表 -->
 								<div
-									v-if="selectedMail?.hasAttachment"
+									v-if="selectedMail && selectedMail.attachments && selectedMail.attachments.length"
+									class="mt-5"
+								>
+									<div class="flex items-center gap-2 mb-2 text-slate-400">
+										<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
+										<span class="text-xs font-semibold uppercase tracking-wider" v-text="'附件 (' + selectedMail.attachments.length + ')'"></span>
+									</div>
+									<ul class="space-y-2">
+										<li
+											v-for="att in selectedMail.attachments"
+											:key="att.key"
+											class="flex items-center gap-3 bg-slate-800/50 border border-slate-700/50 hover:border-nebula-500/40 rounded-xl p-3 transition"
+										>
+											<div class="shrink-0 w-9 h-9 rounded-lg bg-slate-900/70 border border-slate-700/50 flex items-center justify-center text-nebula-300">
+												<svg v-if="isImageType(att.contentType)" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+												<svg v-else class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+											</div>
+											<div class="min-w-0 flex-1">
+												<p class="text-sm text-slate-200 truncate font-mono-jb" v-text="att.filename"></p>
+												<p class="text-[11px] text-slate-500 truncate" v-text="[att.contentType, formatSize(att.size)].filter(Boolean).join(' · ')"></p>
+											</div>
+											<button
+												@click="downloadAttachment(att)"
+												:disabled="downloadingKey === att.key"
+												class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-nebula-300 bg-nebula-500/10 border border-nebula-500/20 hover:bg-nebula-500/20 rounded-lg px-3 py-2 transition disabled:opacity-50"
+											>
+												<svg v-if="downloadingKey === att.key" class="w-4 h-4 animate-spin-slow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+												<svg v-else class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+												<span v-text="downloadingKey === att.key ? '下载中…' : '下载'"></span>
+											</button>
+										</li>
+									</ul>
+									<p class="mt-2 text-[11px] text-slate-600">附件仅在服务器保留 3 天，请及时下载。</p>
+								</div>
+								<!-- 旧邮件（冷读取）只有附件标记、无清单时的降级提示 -->
+								<div
+									v-else-if="selectedMail?.hasAttachment"
 									class="mt-4 flex items-center gap-2 text-xs text-slate-400 bg-slate-800/50 border border-slate-700/50 rounded-lg p-3"
 								>
 									<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
-									<span>此邮件包含附件</span>
+									<span>此邮件包含附件（附件可能已过期或不可下载）</span>
 								</div>
 							</div>
 						</div>
