@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue"
+import { ref, computed, watch, onMounted, onUnmounted } from "vue"
 import { api, setSitePassword, setToken } from "./api/client"
 
 interface MailMeta {
@@ -22,6 +22,7 @@ const passwordInput = ref("")
 const addressInput = ref("")
 const selectedDomain = ref("")
 const generatedAddress = ref("")
+const prefixLen = ref(4)
 const currentAddress = ref("")
 const mails = ref<MailMeta[]>([])
 const selectedId = ref<string | null>(null)
@@ -67,6 +68,10 @@ const domainHint = computed(() =>
 		? "已从后台读取 " + domains.value.length + " 个可用域名，请选择一个后随机生成邮箱"
 		: "后台暂未返回可用域名，请检查 Worker 的 MAIL_DOMAINS 配置",
 )
+const prefixFillStyle = computed(() => {
+	const pct = ((prefixLen.value - 4) / (16 - 4)) * 100
+	return { "--fill": pct + "%" }
+})
 const progressStyle = computed(() => {
 	const pct = Math.max(0, Math.min(100, (timer.value / TIMER_MAX) * 100))
 	return { width: pct + "%" }
@@ -218,12 +223,16 @@ async function verifySite() {
 }
 
 function randomLocal() {
-	const adj = ["swift","lunar","nova","cobalt","amber","quartz","zen","echo","pixel","flux","onyx","vivid","misty","solar","cyan","rapid","silent","crimson"]
-	const noun = ["fox","raven","comet","cedar","otter","falcon","maple","drift","ember","harbor","willow","koi","lynx","sage","wave","pine","nova","orbit"]
-	const a = adj[Math.floor(Math.random() * adj.length)]
-	const n = noun[Math.floor(Math.random() * noun.length)]
-	const num = Math.floor(1000 + Math.random() * 9000)
-	return a + n + num
+	// 按滑块设定的长度生成前缀（4–16 个字符）。
+	const len = Math.min(16, Math.max(4, Math.round(prefixLen.value)))
+	const letters = "abcdefghijklmnopqrstuvwxyz"
+	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+	// 首字符用字母，避免纯数字开头。
+	let s = letters[Math.floor(Math.random() * letters.length)]
+	for (let i = 1; i < len; i++) {
+		s += chars[Math.floor(Math.random() * chars.length)]
+	}
+	return s
 }
 function generateAddress() {
 	if (!selectedDomain.value) {
@@ -287,6 +296,14 @@ function logout() {
 	generatedAddress.value = ""
 	view.value = "generator"
 }
+
+// 拖动滑块改变前缀长度时，若已生成过地址，自动重新生成一个符合新长度的。
+watch(prefixLen, () => {
+	if (generatedAddress.value && selectedDomain.value) {
+		generatedAddress.value = randomLocal() + "@" + selectedDomain.value
+		addressInput.value = generatedAddress.value
+	}
+})
 
 onMounted(async () => {
 	// 严格按流程：打开前端页面时，先显示站点密码验证页。
@@ -367,6 +384,30 @@ onUnmounted(() => stopCountdown())
 						>
 							<option v-for="d in domains" :key="d" :value="d" v-text="d"></option>
 						</select>
+					</div>
+
+					<div>
+						<div class="flex items-center justify-between mb-2">
+							<label class="block text-[10px] uppercase tracking-widest text-slate-500 font-bold">邮箱前缀长度</label>
+							<span class="inline-flex items-baseline gap-1 px-2.5 py-1 rounded-lg bg-nebula-500/10 border border-nebula-500/30">
+								<span class="text-sm font-bold font-mono-jb text-nebula-200" v-text="prefixLen"></span>
+								<span class="text-[10px] text-slate-400">字符</span>
+							</span>
+						</div>
+						<input
+							type="range"
+							min="4"
+							max="16"
+							step="1"
+							v-model.number="prefixLen"
+							class="prefix-slider"
+							:style="prefixFillStyle"
+							aria-label="邮箱前缀字符数量"
+						/>
+						<div class="flex justify-between text-[10px] text-slate-600 font-mono-jb mt-1.5">
+							<span>4</span>
+							<span>16</span>
+						</div>
 					</div>
 
 					<div>
