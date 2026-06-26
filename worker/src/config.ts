@@ -13,8 +13,12 @@ export function getConfig(env: Env) {
 			ip: { capacity: 60, refillPerSec: 1 },
 			domain: { capacity: 600, refillPerSec: 10 },
 			address: { capacity: 120, refillPerSec: 2 },
+			// 站点密码校验：严格限流防爆破（约 5 次突发，之后 ~3 次/分钟）
+			site: { capacity: 5, refillPerSec: 0.05 },
 		},
 		// 滥用打分阈值
 		abuse: { blockScore: 80, warnScore: 50 },
+		// 单附件最大字节数（默认 10MB），超过则跳过落盘，防止 R2 被塞满
+		maxAttachmentBytes: 10 * 1024 * 1024,
 	} as const
 }

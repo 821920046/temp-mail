@@ -1,11 +1,14 @@
 import { Hono } from "hono"
 import type { Env } from "../env"
+import { safeEqual } from "../security/compare"
 
 export const admin = new Hono<{ Bindings: Env }>()
 
 function checkAdmin(c: any): boolean {
-	const pw = c.req.header("x-admin-password")
-	return !!pw && pw === c.env.ADMIN_PASSWORD
+	const expected = c.env.ADMIN_PASSWORD?.trim()
+	if (!expected) return false
+	const pw = c.req.header("x-admin-password")?.trim()
+	return !!pw && safeEqual(pw, expected)
 }
 
 /** 统计概览。 */

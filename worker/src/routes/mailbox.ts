@@ -50,10 +50,15 @@ mailbox.get("/attachment/*", async (c) => {
 	const obj = await c.env.ATTACHMENTS.get(key)
 	if (!obj) return c.json({ error: "not found" }, 404)
 	const filename = key.slice(key.lastIndexOf("/") + 1)
+	const rawType = obj.httpMetadata?.contentType ?? "application/octet-stream"
+	// 对可内嵌脚本的类型（HTML / SVG / XHTML）强制以二进制下发，杜绝同源存储型 XSS。
+	const risky = /^(text\/html|image\/svg\+xml|application\/xhtml\+xml)/i.test(rawType)
+	const safeType = risky ? "application/octet-stream" : rawType
 	return new Response(obj.body, {
 		headers: {
-			"content-type": obj.httpMetadata?.contentType ?? "application/octet-stream",
+			"content-type": safeType,
 			"content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+			"x-content-type-options": "nosniff",
 		},
 	})
 })

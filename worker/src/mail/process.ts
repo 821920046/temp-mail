@@ -12,6 +12,7 @@ import { archiveMail } from "../storage/d1"
 import { pushHot } from "../storage/hotcache"
 import { pushNotification } from "./notify"
 import { recordMetric } from "../observability/metrics"
+import { getConfig } from "../config"
 
 export async function processMail(env: Env, task: ProcessTask): Promise<void> {
 	const rawObj = await env.ATTACHMENTS.get(task.rawKey)
@@ -35,8 +36,14 @@ export async function processMail(env: Env, task: ProcessTask): Promise<void> {
 	}
 
 	// 3) 附件落盘（带 TTL），同时收集元数据供前端列出 / 下载
+	const maxAttachmentBytes = getConfig(env).maxAttachmentBytes
 	const attachmentsMeta: AttachmentMeta[] = []
 	for (const att of parsed.attachments) {
+		// 跳过超大附件，防止 R2 被塞满
+		if (att.bytes.length > maxAttachmentBytes) {
+			recordMetric(env, "attachment_skipped", { reason: "too_large" })
+			continue
+		}
 		const key = `att/${task.mailbox}/${task.receivedAt}-${att.filename}`
 		await putAttachment(env, key, att.bytes, att.contentType)
 		attachmentsMeta.push({

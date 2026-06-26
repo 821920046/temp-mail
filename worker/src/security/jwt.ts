@@ -18,7 +18,7 @@ export interface MailboxClaims {
 }
 
 /** 签发常规会话 token。 */
-export async function signSession(env: Env, claims: MailboxClaims, ttl = "72h"): Promise<string> {
+export async function signSession(env: Env, claims: MailboxClaims, ttl = "6h"): Promise<string> {
 	return new SignJWT({ mailbox: claims.mailbox, role: claims.role ?? "user" })
 		.setProtectedHeader({ alg: "HS256", kid: "current" })
 		.setIssuedAt()

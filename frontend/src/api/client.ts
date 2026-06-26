@@ -1,7 +1,13 @@
 /** 极简 API 客户端。 */
 const base = "/api"
 
-let token = new URLSearchParams(location.search).get("token") ?? localStorage.getItem("token") ?? ""
+function readTokenFromUrl(): string {
+	const rawHash = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash
+	const fromHash = new URLSearchParams(rawHash).get("token")
+	const fromQuery = new URLSearchParams(location.search).get("token")
+	return fromHash || fromQuery || ""
+}
+let token = readTokenFromUrl() || localStorage.getItem("token") || ""
 let sitePassword = localStorage.getItem("site_password") ?? ""
 
 export function setToken(t: string) {

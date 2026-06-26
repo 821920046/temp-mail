@@ -19,7 +19,10 @@ export interface Env {
 	// Secrets
 	JWT_SECRET: string
 	ADMIN_PASSWORD: string
+	// 站点入口密码（独立于管理员密码）；未设置时回退使用 ADMIN_PASSWORD。
 	SITE_PASSWORD?: string
+	// 反向代理共享密钥：设置后 Worker 仅接受携带正确 X-Proxy-Secret 的请求（堵死 workers.dev 直连）。
+	PROXY_SECRET?: string
 	RESEND_API_KEY?: string
 	TELEGRAM_BOT_TOKEN?: string
 
@@ -28,6 +31,8 @@ export interface Env {
 	SEND_PROVIDER: "resend" | "none"
 	ATTACHMENT_TTL_DAYS: string
 	MAIL_RETENTION_DAYS: string
+	// 设为 "1"/"true" 时 API 返回详细错误（仅排查用）；默认返回笼统 500。
+	DEBUG_ERRORS?: string
 }
 
 /**

@@ -8,7 +8,7 @@
 import type { Env } from "../env"
 import { getConfig } from "../config"
 
-export type RateScope = "ip" | "domain" | "address"
+export type RateScope = "ip" | "domain" | "address" | "site"
 
 export interface RateResult {
 	allowed: boolean
@@ -79,4 +79,10 @@ export async function checkRateLimits(
 		if (!r.allowed) return r
 	}
 	return { allowed: true, remaining: 0, retryAfterMs: 0 }
+}
+
+/** 站点密码登录专用的严格限流（按 IP），防止暴力破解唯一密码。 */
+export async function checkSiteLoginLimit(env: Env, ip: string): Promise<RateResult> {
+	const cfg = getConfig(env).rateLimits
+	return take(env, "site", ip, cfg.site.capacity, cfg.site.refillPerSec)
 }

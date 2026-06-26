@@ -15,6 +15,16 @@ MAIL_DOMAINS = "example.com"
 SEND_PROVIDER = "none"
 ATTACHMENT_TTL_DAYS = "3"
 MAIL_RETENTION_DAYS = "7"
+# 设为 "1" 时 API 返回详细错误（仅排查用）；生产保持注释或 "0"。
+# DEBUG_ERRORS = "0"
+
+# ===== 需通过 `wrangler secret put <NAME>` 设置的机密（切勿写入本文件）=====
+#   ADMIN_PASSWORD  管理员密码（保护 /api/admin/* 与 /health/deep）
+#   SITE_PASSWORD   站点入口密码（可选；未设置时回退使用 ADMIN_PASSWORD）
+#   JWT_SECRET      会话签名密钥（请用 >=32 字节强随机值）
+#   PROXY_SECRET    反代共享密钥（可选；设置后 Worker 仅接受携带 X-Proxy-Secret 的请求，
+#                   同一值需在 Pages 项目 Settings -> Variables 里也设置为 PROXY_SECRET）
+#   RESEND_API_KEY / TELEGRAM_BOT_TOKEN  可选
 
 # ===== D1：权威源 + 限流计数（免费）=====
 [[d1_databases]]
