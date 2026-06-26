@@ -9,6 +9,7 @@ export type MetricName =
 	| "mail_parsed"
 	| "mail_rejected"
 	| "mail_quarantined"
+	| "attachment_skipped"
 	| "parse_failed"
 	| "push_sent"
 	| "push_failed"

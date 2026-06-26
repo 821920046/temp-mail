@@ -7,6 +7,6 @@ export function safeEqual(a: string, b: string): boolean {
 	const be = enc.encode(b)
 	if (ae.length !== be.length) return false
 	let diff = 0
-	for (let i = 0; i < ae.length; i++) diff |= ae[i] ^ be[i]
+	for (let i = 0; i < ae.length; i++) diff |= (ae[i] ?? 0) ^ (be[i] ?? 0)
 	return diff === 0
 }
