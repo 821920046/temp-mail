@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.2.0 — 安全加固 + 稳定性与工程化优化
+
+### 安全
+- 密码 / 密钥比较统一改为 **恒定时间比较**（`security/compare.ts`），消除时序侧信道。
+- 新增可选 **站点访问密码 `SITE_PASSWORD`** 与 **反代共享密钥 `PROXY_SECRET`**；前端按密码哈希优先校验，Pages 反代注入 `X-Proxy-Secret`。
+- 附件对 HTML / SVG / XHTML 等可内联脚本类型 **强制二进制下发** 并加 `nosniff`，杜绝同源存储型 XSS。
+- 新增 **黑名单（blocklist）发件人拦截**（支持 `*` 通配），并将发件人频率信号纳入滥用打分。
+- 验证码提取 **移除「任意 4–8 位数字」裸兜底**，仅按关键词匹配，避免把订单号 / 金额误判为验证码。
+- JWT 会话默认有效期收敛为 6 小时；管理 / 站点登录增加专用限流。
+
+### 数据 / 功能
+- **附件清单持久化到 D1**（新增 `mails.attachments` 列 + 迁移 `0002_add_attachments.sql`），邮件被热缓存淘汰后仍可列出 / 下载附件。
+- 收件箱首页改为 **KV 热缓存 + D1 合并去重**，修复 KV 读-改-写竞态导致的「丢信不可见」。
+- 附件 R2 key 增加 **文件名清洗 + 自增序号防碰撞**（前端下载名不受影响）。
+- 登录成功 **登记地址到 `addresses` 表**；管理后台 `/stats` 增加 `knownAddresses` 统计。
+
+### 工程 / 前端
+- CI 增加 **前端类型检查** 与 **部署前 `tsc` 门禁**；补齐 `frontend/tsconfig.json` 使 `vue-tsc` 可用。
+- Worker 中间件 / 路由从 `c: any` 收紧为 **Hono 强类型 `Context`**。
+- 新增 **MIME 解析 / 恒定时间比较单测**（`test/parse.test.ts`、`test/compare.test.ts`）。
+- 前端 Tailwind 由 **CDN 改为 PostCSS 本地编译**（`tailwind.config.cjs` / `postcss.config.cjs`）。
+- `wrangler.toml` 增加 R2 Object lifecycle 建议注释，明确 `MAIL_DOMAINS` 应以 `[vars]` 为源头。
+
+### 升级提示
+- **先跑迁移再部署**：`npx wrangler d1 execute temp-mail --file db/migrations/0002_add_attachments.sql --remote`。
+
 ## v2.1.0 — 纯免费额度重构（移除一切付费特性）
 
 ### 重大变更

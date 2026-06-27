@@ -1,8 +1,8 @@
 {
   "name": "temp-mail",
-  "version": "2.0.0",
+  "version": "2.2.0",
   "private": true,
-  "description": "Free temporary domain email on Cloudflare — optimized edition",
+  "description": "基于 Cloudflare 纯免费额度的临时域名邮箱（Workers/D1/KV/R2/Email Routing）— 反滥用与安全加固优化版",
   "license": "MIT",
   "packageManager": "pnpm@9.0.0",
   "scripts": {
