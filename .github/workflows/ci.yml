@@ -24,6 +24,8 @@ jobs:
         run: pnpm install --no-frozen-lockfile
       - name: Type check Worker
         run: pnpm --filter worker build
+      - name: Type check Frontend
+        run: pnpm --filter frontend typecheck
       - name: Test Worker
         run: pnpm --filter worker test
 
@@ -41,6 +43,8 @@ jobs:
           corepack prepare pnpm@9.0.0 --activate
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
+      - name: Type check before deploy
+        run: pnpm --filter worker build
       - name: Deploy Worker
         run: pnpm --filter worker run deploy
         env:
