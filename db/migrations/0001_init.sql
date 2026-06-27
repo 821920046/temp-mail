@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS mails (
   has_attachment INTEGER DEFAULT 0,
   code          TEXT,
   category      TEXT,
+  attachments   TEXT,
   raw_key       TEXT,
   received_at   INTEGER NOT NULL
 );

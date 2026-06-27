@@ -21,6 +21,8 @@ export async function putAttachment(
 }
 
 /** 扫描并删除过期附件/原始邮件。返回删除数量。 */
+// 注意：这是 O(n) 全量列举，仅作兜底。优先在 R2 桶上配置 Object lifecycle
+// 规则（按 att/ 与 raw/ 前缀自动过期），把清理交给平台，零计算成本。
 export async function cleanupExpired(env: Env): Promise<number> {
 	let deleted = 0
 	let cursor: string | undefined

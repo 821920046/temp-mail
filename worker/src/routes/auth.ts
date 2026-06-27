@@ -3,6 +3,7 @@ import type { Env } from "../env"
 import { signSession, signOneTime, verifyToken } from "../security/jwt"
 import { checkRateLimits } from "../security/ratelimit"
 import { getConfig } from "../config"
+import { recordAddress } from "../storage/d1"
 
 export const auth = new Hono<{ Bindings: Env }>()
 
@@ -19,6 +20,8 @@ auth.post("/login", async (c) => {
 	const domain = mailbox.split("@")[1] ?? ""
 	const allowed = getConfig(c.env).domains.map((d) => d.toLowerCase())
 	if (!domain || !allowed.includes(domain)) return c.json({ error: "domain not allowed" }, 400)
+	// 记录被使用过的邮箱（best-effort，失败不影响登录）。
+	await recordAddress(c.env, mailbox).catch(() => {})
 	const token = await signSession(c.env, { mailbox })
 	return c.json({ token })
 })

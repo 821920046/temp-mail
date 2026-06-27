@@ -1,10 +1,13 @@
 import { Hono } from "hono"
+import type { Context } from "hono"
 import type { Env } from "../env"
 import { safeEqual } from "../security/compare"
 
 export const admin = new Hono<{ Bindings: Env }>()
 
-function checkAdmin(c: any): boolean {
+type Ctx = Context<{ Bindings: Env }>
+
+function checkAdmin(c: Ctx): boolean {
 	const expected = c.env.ADMIN_PASSWORD?.trim()
 	if (!expected) return false
 	const pw = c.req.header("x-admin-password")?.trim()
@@ -18,7 +21,14 @@ admin.get("/stats", async (c) => {
 	const mailboxes = await c.env.DB.prepare(
 		`SELECT COUNT(DISTINCT mailbox) AS n FROM mails`,
 	).first<{ n: number }>()
-	return c.json({ totalMails: total?.n ?? 0, mailboxes: mailboxes?.n ?? 0 })
+	const addresses = await c.env.DB.prepare(
+		`SELECT COUNT(*) AS n FROM addresses`,
+	).first<{ n: number }>()
+	return c.json({
+		totalMails: total?.n ?? 0,
+		mailboxes: mailboxes?.n ?? 0,
+		knownAddresses: addresses?.n ?? 0,
+	})
 })
 
 /** 手动触发清理。 */

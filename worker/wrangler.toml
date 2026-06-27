@@ -38,6 +38,8 @@ binding = "KV"
 id = "20650da6c6e4409f8b92fc1c01462413"
 
 # ===== R2：附件对象存储（免费 10GB）=====
+# 建议：在 Cloudflare 控制台为该桶配置 Object lifecycle 规则（按 att/ 与 raw/ 前缀自动过期，
+#   分别对齐 ATTACHMENT_TTL_DAYS 与 MAIL_RETENTION_DAYS），把清理交给平台；cron 全量扫描仅作兜底。
 [[r2_buckets]]
 binding = "ATTACHMENTS"
 bucket_name = "temp-mail-attachments"

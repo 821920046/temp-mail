@@ -7,6 +7,7 @@
  * 说明：不使用 Cloudflare Queues / 标准 Durable Objects 等付费特性。
  */
 import { Hono } from "hono"
+import type { Context, Next } from "hono"
 import type { Env } from "./env"
 import { getConfig } from "./config"
 import { handleEmail } from "./mail/receive"
@@ -19,13 +20,15 @@ import { checkSiteLoginLimit } from "./security/ratelimit"
 
 const app = new Hono<{ Bindings: Env }>()
 
-function getSitePassword(c: any): string | undefined {
+type Ctx = Context<{ Bindings: Env }>
+
+function getSitePassword(c: Ctx): string | undefined {
 	// 站点入口密码优先使用独立的 SITE_PASSWORD；未设置时回退到 ADMIN_PASSWORD（向后兼容）。
 	// 同时去掉首尾空格/换行，避免复制 Secret 时带入不可见字符导致 401。
 	return (c.env.SITE_PASSWORD?.trim() || c.env.ADMIN_PASSWORD?.trim()) || undefined
 }
 
-function sitePasswordOk(c: any): boolean {
+function sitePasswordOk(c: Ctx): boolean {
 	const expected = getSitePassword(c)
 	if (!expected) return false
 	const headerPassword = c.req.header("x-site-password")?.trim()
@@ -33,7 +36,7 @@ function sitePasswordOk(c: any): boolean {
 }
 
 // 管理员鉴权：仅使用 ADMIN_PASSWORD，恒定时间比较。
-function adminOk(c: any): boolean {
+function adminOk(c: Ctx): boolean {
 	const expected = c.env.ADMIN_PASSWORD?.trim()
 	if (!expected) return false
 	const pw = c.req.header("x-admin-password")?.trim()
@@ -42,7 +45,7 @@ function adminOk(c: any): boolean {
 
 // 反向代理守卫：设置了 PROXY_SECRET 时，仅接受携带正确 X-Proxy-Secret 的请求，
 // 堵死直接访问 workers.dev 绕过 Pages 密码门的路径。未设置则不强制（避免误锁）。
-async function proxyGuard(c: any, next: any) {
+async function proxyGuard(c: Ctx, next: Next) {
 	const expected = c.env.PROXY_SECRET?.trim()
 	if (expected) {
 		const got = c.req.header("x-proxy-secret")?.trim()
@@ -54,7 +57,7 @@ async function proxyGuard(c: any, next: any) {
 }
 
 // 站点密码中间件：保护“签发 token”与“读邮件”的所有接口。
-async function requireSitePassword(c: any, next: any) {
+async function requireSitePassword(c: Ctx, next: Next) {
 	if (!sitePasswordOk(c)) return c.json({ error: "site password required" }, 401)
 	await next()
 }

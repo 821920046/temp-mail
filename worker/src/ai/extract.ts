@@ -11,13 +11,13 @@ export interface MailInsights {
 	unsubscribeUrl?: string // 退订链接
 }
 
-const CODE_RE = /\b(\d{4,8})\b/
 const UNSUB_RE = /https?:\/\/\S*(unsubscribe|optout|opt-out)\S*/i
 
 /** 正则提取（降级方案，零成本）。 */
 function regexExtract(subject: string, body: string): MailInsights {
 	const text = `${subject}\n${body}`
-	const codeMatch = text.match(/(?:code|verification|otp|验证码|校验码)[^\d]{0,12}(\d{4,8})/i) ?? text.match(CODE_RE)
+	// 仅按上下文关键词提取验证码，避免把订单号/金额等任意 4-8 位数字误判为验证码。
+	const codeMatch = text.match(/(?:code|verification|otp|验证码|校验码|动态码)[^\d]{0,16}(\d{4,8})/i)
 	const unsub = text.match(UNSUB_RE)?.[0]
 	let category = "general"
 	if (/invoice|receipt|payment|账单|发票/i.test(text)) category = "billing"

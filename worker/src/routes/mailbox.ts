@@ -1,12 +1,16 @@
 import { Hono } from "hono"
+import type { Context } from "hono"
 import type { Env } from "../env"
+import type { MailMeta } from "../mail/types"
 import { verifyToken } from "../security/jwt"
 import { listHot } from "../storage/hotcache"
 import { listMailsFromD1 } from "../storage/d1"
 
 export const mailbox = new Hono<{ Bindings: Env }>()
 
-async function requireAuth(c: any): Promise<string | null> {
+type Ctx = Context<{ Bindings: Env }>
+
+async function requireAuth(c: Ctx): Promise<string | null> {
 	const token = c.req.header("authorization")?.replace(/^Bearer\s+/i, "")
 	if (!token) return null
 	try {
@@ -26,8 +30,14 @@ mailbox.get("/mails", async (c) => {
 
 	// 热缓存（仅首页）
 	if (offset === 0) {
-		const hot = await listHot(c.env, addr, limit, 0)
-		if (hot.length > 0) return c.json({ source: "hot", mails: hot })
+		// 合并 KV 热缓存与 D1 首页结果并按 id 去重：既享受热缓存加速，
+		// 又避免 KV 读-改-写竞态导致的“丢信不可见”。
+		const [hot, cold] = await Promise.all([
+			listHot(c.env, addr, limit, 0),
+			listMailsFromD1(c.env, addr, limit, 0),
+		])
+		const merged = mergeById(hot, cold).slice(0, limit)
+		return c.json({ source: hot.length ? "hot+cold" : "cold", mails: merged })
 	}
 
 	// 回源 D1
@@ -62,3 +72,13 @@ mailbox.get("/attachment/*", async (c) => {
 		},
 	})
 })
+
+/** 按 id 合并两个邮件列表并去重，偏好携带附件清单的版本，按时间倒序。 */
+function mergeById(a: MailMeta[], b: MailMeta[]): MailMeta[] {
+	const map = new Map<string, MailMeta>()
+	for (const m of [...a, ...b]) {
+		const existing = map.get(m.id)
+		if (!existing || (!existing.attachments && m.attachments)) map.set(m.id, m)
+	}
+	return [...map.values()].sort((x, y) => y.receivedAt - x.receivedAt)
+}

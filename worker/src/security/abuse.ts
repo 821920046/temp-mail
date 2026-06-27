@@ -4,6 +4,7 @@
  */
 import type { Env } from "../env"
 import { getConfig } from "../config"
+import { loadBlocklistPatterns } from "../storage/d1"
 
 const SUSPICIOUS_KEYWORDS = [
 	"verify your account",
@@ -21,6 +22,7 @@ export interface AbuseSignal {
 	body: string
 	senderReputation?: number // 0(差)-100(好)，可接外部信誉库
 	recentCountFromIp?: number
+	recentCountFromSender?: number // 最近时间窗内同一发件人来信数
 }
 
 export interface AbuseVerdict {
@@ -49,13 +51,35 @@ export function scoreAbuse(env: Env, sig: AbuseSignal): AbuseVerdict {
 	}
 
 	// 3) 频率
-	if (sig.recentCountFromIp && sig.recentCountFromIp > 30) {
-		score += Math.min(30, sig.recentCountFromIp - 30)
-		reasons.push(`high_frequency:${sig.recentCountFromIp}`)
+	const recentCount = sig.recentCountFromSender ?? sig.recentCountFromIp ?? 0
+	if (recentCount > 30) {
+		score += Math.min(30, recentCount - 30)
+		reasons.push(`high_frequency:${recentCount}`)
 	}
 
 	score = Math.min(100, Math.round(score))
 	const action =
 		score >= cfg.blockScore ? "block" : score >= cfg.warnScore ? "quarantine" : "accept"
 	return { score, action, reasons }
+}
+
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+/** 黑名单匹配：命中返回触发的规则，否则 null。支持 * 通配。 */
+export async function matchBlocklist(env: Env, from: string): Promise<string | null> {
+	const patterns = await loadBlocklistPatterns(env)
+	const f = from.toLowerCase()
+	for (const { pattern } of patterns) {
+		const p = (pattern ?? "").trim().toLowerCase()
+		if (!p) continue
+		if (p.includes("*")) {
+			const re = new RegExp("^" + p.split("*").map(escapeRegExp).join(".*") + "$")
+			if (re.test(f)) return pattern
+		} else if (f.includes(p)) {
+			return pattern
+		}
+	}
+	return null
 }
