@@ -11,7 +11,7 @@ compatibility_flags = ["nodejs_compat"]
 
 # ===== 静态变量（非敏感）=====
 [vars]
-MAIL_DOMAINS = "example.com"
+MAIL_DOMAINS = "agent.kdns.fr,anondrop.de5.net,hbfm.ip-ddns.com,my-lab.eu.cc,my-skill.eu.cc,notice.indevs.in,up-time.indevs.in,fakeid.de5.net"
 SEND_PROVIDER = "none"
 ATTACHMENT_TTL_DAYS = "3"
 MAIL_RETENTION_DAYS = "7"
