@@ -147,7 +147,7 @@ function mergeById(a: MailMeta[], b: MailMeta[]): MailMeta[] {
 /** 从 "Name <a@b>" 或 "a@b" 中提取纯邮箱地址；无法识别则返回空串。 */
 function extractEmail(from: string): string {
 	const m = /<([^>]+)>/.exec(from || "")
-	const raw = (m ? m[1] : from || "").trim()
+	const raw = (m?.[1] ?? from ?? "").trim()
 	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) ? raw : ""
 }
 
