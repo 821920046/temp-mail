@@ -14,7 +14,7 @@ compatibility_flags = ["nodejs_compat"]
 MAIL_DOMAINS = "agent.kdns.fr,anondrop.de5.net,hbfm.ip-ddns.com,my-lab.eu.cc,my-skill.eu.cc,notice.indevs.in,up-time.indevs.in,fakeid.de5.net"
 # 发件 / 回复功能：设为 "resend" 开启（需 `wrangler secret put RESEND_API_KEY`，
 # 且每个作为发件人的 MAIL_DOMAINS 域名都需在 Resend 完成 SPF/DKIM 验证）；"none" 时仅收不发。
-SEND_PROVIDER = "none"
+SEND_PROVIDER = "resend"
 ATTACHMENT_TTL_DAYS = "3"
 MAIL_RETENTION_DAYS = "7"
 # 设为 "1" 时 API 返回详细错误（仅排查用）；生产保持注释或 "0"。
