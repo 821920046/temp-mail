@@ -15,6 +15,9 @@ export function getConfig(env: Env) {
 			address: { capacity: 120, refillPerSec: 2 },
 			// 站点密码校验：严格限流防爆破（约 5 次突发，之后 ~3 次/分钟）
 			site: { capacity: 5, refillPerSec: 0.05 },
+			// 发件（回复）限流（按邮箱地址）：防止把临时邮箱当作垃圾邮件发射器；
+			// 约 20 封突发额度，之后 ~1.2 封/分钟（Resend 免费额度 100 封/天）
+			send: { capacity: 20, refillPerSec: 0.02 },
 		},
 		// 滥用打分阈值
 		abuse: { blockScore: 80, warnScore: 50 },

@@ -8,7 +8,7 @@
 import type { Env } from "../env"
 import { getConfig } from "../config"
 
-export type RateScope = "ip" | "domain" | "address" | "site"
+export type RateScope = "ip" | "domain" | "address" | "site" | "send"
 
 export interface RateResult {
 	allowed: boolean
@@ -85,4 +85,10 @@ export async function checkRateLimits(
 export async function checkSiteLoginLimit(env: Env, ip: string): Promise<RateResult> {
 	const cfg = getConfig(env).rateLimits
 	return take(env, "site", ip, cfg.site.capacity, cfg.site.refillPerSec)
+}
+
+/** 发件（回复）专用限流（按邮箱地址），防止滥用 Resend 额度 / 被当作垃圾邮件网关。 */
+export async function checkSendLimit(env: Env, mailbox: string): Promise<RateResult> {
+	const cfg = getConfig(env).rateLimits
+	return take(env, "send", mailbox, cfg.send.capacity, cfg.send.refillPerSec)
 }

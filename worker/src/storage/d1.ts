@@ -6,8 +6,8 @@ import type { MailMeta, AttachmentMeta } from "../mail/types"
 
 export async function archiveMail(env: Env, mailbox: string, meta: MailMeta, rawKey: string): Promise<void> {
 	await env.DB.prepare(
-		`INSERT INTO mails (id, mailbox, sender, subject, preview, has_attachment, code, category, attachments, raw_key, received_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO mails (id, mailbox, sender, subject, preview, has_attachment, code, category, attachments, message_id, raw_key, received_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	)
 		.bind(
 			meta.id,
@@ -19,6 +19,7 @@ export async function archiveMail(env: Env, mailbox: string, meta: MailMeta, raw
 			meta.code ?? null,
 			meta.category ?? null,
 			meta.attachments && meta.attachments.length ? JSON.stringify(meta.attachments) : null,
+			meta.messageId ?? null,
 			rawKey,
 			meta.receivedAt,
 		)
@@ -33,7 +34,7 @@ export async function listMailsFromD1(
 	offset = 0,
 ): Promise<MailMeta[]> {
 	const rows = await env.DB.prepare(
-		`SELECT id, sender AS "from", subject, preview, has_attachment, code, category, attachments, received_at
+		`SELECT id, sender AS "from", subject, preview, has_attachment, code, category, attachments, message_id, received_at
 		 FROM mails WHERE mailbox = ? ORDER BY received_at DESC LIMIT ? OFFSET ?`,
 	)
 		.bind(mailbox, limit, offset)
@@ -46,6 +47,7 @@ export async function listMailsFromD1(
 			code: string | null
 			category: string | null
 			attachments: string | null
+			message_id: string | null
 			received_at: number
 		}>()
 	return (rows.results ?? []).map((r) => ({
@@ -58,7 +60,23 @@ export async function listMailsFromD1(
 		code: r.code ?? undefined,
 		category: r.category ?? undefined,
 		attachments: parseAttachments(r.attachments),
+		messageId: r.message_id ?? undefined,
 	}))
+}
+
+/** 按 id 读取单封邮件（回复时用于解析原始发件人 / 主题 / Message-ID）。 */
+export async function getMailById(
+	env: Env,
+	mailbox: string,
+	id: string,
+): Promise<{ from: string; subject: string; messageId?: string } | null> {
+	const row = await env.DB.prepare(
+		`SELECT sender AS "from", subject, message_id FROM mails WHERE mailbox = ? AND id = ? LIMIT 1`,
+	)
+		.bind(mailbox, id)
+		.first<{ from: string; subject: string; message_id: string | null }>()
+	if (!row) return null
+	return { from: row.from, subject: row.subject, messageId: row.message_id ?? undefined }
 }
 
 /** 删除过期历史邮件（cron 调用）。 */

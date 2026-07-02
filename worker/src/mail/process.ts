@@ -78,6 +78,7 @@ export async function processMail(env: Env, task: ProcessTask): Promise<void> {
 		code: insights.code,
 		category: insights.category,
 		attachments: attachmentsMeta,
+		messageId: parsed.messageId,
 	}
 	await pushHot(env, task.mailbox, meta)
 

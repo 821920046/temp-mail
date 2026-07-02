@@ -16,6 +16,8 @@ export interface ParsedMail {
 	from: string
 	text: string
 	html?: string
+	// 原始邮件 Message-ID（用于回复时的 In-Reply-To / References 线程串联）
+	messageId?: string
 	attachments: Array<{ filename: string; contentType: string; bytes: Uint8Array }>
 }
 
@@ -37,6 +39,7 @@ function fallbackParse(rawText: string): ParsedMail {
 	const root = parseMimePart(normalizeNewlines(rawText))
 	const subject = decodeHeader(getHeader(root.headers, "subject"))
 	const from = decodeHeader(getHeader(root.headers, "from"))
+	const messageId = getHeader(root.headers, "message-id").trim()
 	const leaves = flattenLeafParts(root)
 
 	let text = ""
@@ -88,6 +91,7 @@ function fallbackParse(rawText: string): ParsedMail {
 		from: cleanText(from),
 		text: cleanText(text),
 		html: html || undefined,
+		messageId: messageId || undefined,
 		attachments,
 	}
 }

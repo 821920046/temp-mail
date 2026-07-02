@@ -44,6 +44,17 @@
 | 🛠️ 工程 | 新增 **MIME 解析 / 恒定时间比较单测** | `worker/test/parse.test.ts`, `worker/test/compare.test.ts` |
 | 🎨 前端 | Tailwind 由 **CDN 改为 PostCSS 本地编译**，并补齐 `tsconfig.json` 使 `vue-tsc` 类型检查可用 | `frontend/tailwind.config.cjs`, `frontend/postcss.config.cjs`, `frontend/tsconfig.json` |
 
+### 发件 / 回复（v2.3 新增）
+
+| 类别 | 优化 | 落地位置 |
+| --- | --- | --- |
+| ✉️ 功能 | 临时邮箱收到邮件后可 **直接回复原发件人**（经 Resend 发件） | `worker/src/routes/mailbox.ts`（`POST /reply`）, `worker/src/mail/send.ts`, `frontend/src/App.vue` |
+| 🔐 安全 | **仅回复**设计：`from` 强制为当前登录邮箱，`to` 由服务端从原邮件解析，客户端无法任意发信 | `worker/src/routes/mailbox.ts` |
+| 🔐 安全 | 按邮箱地址的 **发件限流**（`send` 令牌桶），防滥用 / 保护 Resend 额度 | `worker/src/security/ratelimit.ts`, `worker/src/config.ts` |
+| 🧵 体验 | 回复通过 `In-Reply-To` / `References` **串联原会话**（新增 `mails.message_id` 列） | `worker/src/mail/parse.ts`, `db/migrations/0003_add_message_id.sql` |
+
+> 启用方式：将 `worker/wrangler.toml` 的 `SEND_PROVIDER` 设为 `"resend"`，`wrangler secret put RESEND_API_KEY`，并在 Resend 中为每个发件域名完成 SPF/DKIM 验证。部署前记得先跑迁移 `0003_add_message_id.sql`。
+
 ## 🏗️ 架构总览（免费额度）
 
 ```
@@ -106,7 +117,7 @@ npx wrangler d1 execute temp-mail --remote --file db/schema.sql
 # 4. 配置 Secret
 npx wrangler secret put JWT_SECRET        # openssl rand -hex 32
 npx wrangler secret put ADMIN_PASSWORD
-# 可选：私人站点 / 反代加固
+# 可选：私��站点 / 反代加固
 # npx wrangler secret put SITE_PASSWORD
 # npx wrangler secret put PROXY_SECRET
 
@@ -153,7 +164,13 @@ MAIL_RETENTION_DAYS = "7"
 
 > ⚠️ **凡是升级到包含数据库结构变更的版本，务必「先跑迁移，再部署 Worker」**，否则新代码引用尚不存在的列会导致接口 500。
 
-本版本（v2.2）新增了 `mails.attachments` 列。从旧版本升级时，**部署新 Worker 之前**先执行：
+**v2.3** 新增了 `mails.message_id` 列（用于回复时的会话串联）。从旧版本升级时，**部署新 Worker 之前**先执行：
+
+```bash
+npx wrangler d1 execute temp-mail --file db/migrations/0003_add_message_id.sql --remote
+```
+
+**v2.2** 新增了 `mails.attachments` 列。从更早的版本升级时，**部署新 Worker 之前**先执行：
 
 ```bash
 npx wrangler d1 execute temp-mail --file db/migrations/0002_add_attachments.sql --remote
@@ -163,6 +180,7 @@ npx wrangler d1 execute temp-mail --file db/migrations/0002_add_attachments.sql 
 
 ```sql
 ALTER TABLE mails ADD COLUMN attachments TEXT;
+ALTER TABLE mails ADD COLUMN message_id TEXT;
 ```
 
 ## 💸 免费额度说明

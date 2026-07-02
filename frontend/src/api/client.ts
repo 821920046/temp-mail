@@ -43,6 +43,9 @@ export const api = {
 	login: (mailbox: string) =>
 		req("/auth/login", { method: "POST", body: JSON.stringify({ mailbox }) }),
 	listMails: () => req("/mailbox/mails"),
+	/** 回复某封收到的邮件（from = 当前临时邮箱，经 Resend 发件）。 */
+	reply: (payload: { id: string; text: string; subject?: string }) =>
+		req("/mailbox/reply", { method: "POST", body: JSON.stringify(payload) }),
 	/** 下载附件（带鉴权头），返回 Blob。key 按路径段逐个编码以兼容空格 / 中文。 */
 	async downloadAttachment(key: string): Promise<Blob> {
 		const encoded = key.split("/").map(encodeURIComponent).join("/")

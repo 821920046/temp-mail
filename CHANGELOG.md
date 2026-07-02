@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.3.0 — 发件 / 回复功能（Resend）
+
+### 功能
+- 新增 **回复收到的邮件** 能力：随机生成临时邮箱并收到邮件后，可直接在详情页回复。
+- 通过 **Resend API** 发件（`SEND_PROVIDER=resend` + `RESEND_API_KEY`）；`none` 时仅收不发，零成本。
+- 新增后端接口 `POST /api/mailbox/reply`：**仅回复**，服务端强制 `from = 当前登录临时邮箱`，`to` 从 D1 原邮件发件人解析，客户端无法指定任意收发地址（反垃圾邮件设计）。
+- 回复通过 `In-Reply-To` / `References` 头 **串联原邮件会话**（新增 `mails.message_id` 列 + 迁移 `0003_add_message_id.sql`，并在解析阶段提取原始 `Message-ID`）。
+- 新增按邮箱地址的 **发件限流**（令牌桶 `send` 维度），避免临时邮箱被当作垃圾邮件网关、烧穿 Resend 免费额度。
+
+### 前端
+- 邮件详情页新增 **「写回复」** 面板（主题 + 正文），含发送状态与结果提示。
+
+### 部署注意
+- 部署前先执行迁移：`npx wrangler d1 execute temp-mail --file db/migrations/0003_add_message_id.sql --remote`。
+- 在 Resend 中为每个用作发件人的 `MAIL_DOMAINS` 域名完成 **SPF / DKIM 验证**，否则发件会失败。
+
 ## v2.2.0 — 安全加固 + 稳定性与工程化优化
 
 ### 安全

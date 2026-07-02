@@ -21,4 +21,6 @@ export interface MailMeta {
 	category?: string
 	// 附件清单（仅 KV 热缓存携带；附件 TTL 比邮件短，可下载的附件必然在热缓存内）
 	attachments?: AttachmentMeta[]
+	// 原始邮件 Message-ID（回复时用于 In-Reply-To / References，保持邮件会话串联）
+	messageId?: string
 }

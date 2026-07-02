@@ -1,5 +1,5 @@
 /* temp-mail D1 schema (cold archive + rate-limit token bucket, all free tier). No line comments so it stays valid even if pasted as a single line in the D1 Console. */
-CREATE TABLE IF NOT EXISTS mails (id TEXT PRIMARY KEY, mailbox TEXT NOT NULL, sender TEXT NOT NULL, subject TEXT, preview TEXT, has_attachment INTEGER DEFAULT 0, code TEXT, category TEXT, attachments TEXT, raw_key TEXT, received_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS mails (id TEXT PRIMARY KEY, mailbox TEXT NOT NULL, sender TEXT NOT NULL, subject TEXT, preview TEXT, has_attachment INTEGER DEFAULT 0, code TEXT, category TEXT, attachments TEXT, message_id TEXT, raw_key TEXT, received_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_mails_mailbox_time ON mails (mailbox, received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_mails_received ON mails (received_at);
 CREATE TABLE IF NOT EXISTS addresses (address TEXT PRIMARY KEY, password TEXT, user_id TEXT, created_at INTEGER NOT NULL);

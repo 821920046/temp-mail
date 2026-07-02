@@ -84,7 +84,7 @@ app.get("/", (c) => c.json({
 	endpoints: ["/health", "/health/deep", "/api/site/login", "/api/domains", "/api/auth/login", "/api/mailbox/mails"],
 }))
 
-app.get("/health", (c) => c.json({ ok: true, name: "temp-mail", version: "2.2.0", tier: "free" }))
+app.get("/health", (c) => c.json({ ok: true, name: "temp-mail", version: "2.3.0", tier: "free" }))
 
 // 深度自检：报告关键绑定与初始化状态，便于定位 500。需管理员密码（X-Admin-Password）。
 app.get("/health/deep", async (c) => {

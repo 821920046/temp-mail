@@ -145,6 +145,10 @@ async function copyAddress() {
 	copiedTo = window.setTimeout(() => (copied.value = false), 2000)
 }
 const downloadingKey = ref<string | null>(null)
+const replyOpen = ref(false)
+const replyText = ref("")
+const replySubject = ref("")
+const replying = ref(false)
 async function downloadAttachment(att: AttachmentMeta) {
 	if (downloadingKey.value) return
 	downloadingKey.value = att.key
@@ -187,9 +191,47 @@ function showToast(title: string, msg: string) {
 
 function selectMail(id: string) {
 	selectedId.value = id
+	replyOpen.value = false
+	replyText.value = ""
 	const next = new Set(readIds.value)
 	next.add(id)
 	readIds.value = next
+}
+
+function openReply() {
+	const m = selectedMail.value
+	if (!m) return
+	replySubject.value = subjectOf(m).replace(/^\s*re:\s*/i, "")
+	replyText.value = ""
+	replyOpen.value = true
+}
+
+function closeReply() {
+	replyOpen.value = false
+	replyText.value = ""
+}
+
+async function sendReply() {
+	if (replying.value) return
+	const m = selectedMail.value
+	if (!m) return
+	const text = replyText.value.trim()
+	if (!text) {
+		showToast("无法发送", "请先输入回复内容")
+		return
+	}
+	replying.value = true
+	try {
+		const subj = replySubject.value.trim()
+		const r = await api.reply({ id: m.id, text, subject: subj || undefined })
+		showToast("已发送", "回复已发送至 " + ((r && r.to) || senderEmail(m.from)))
+		replyOpen.value = false
+		replyText.value = ""
+	} catch (e: any) {
+		showToast("发送失败", e && e.message ? e.message : String(e))
+	} finally {
+		replying.value = false
+	}
 }
 
 async function refresh() {
@@ -796,6 +838,68 @@ onUnmounted(() => stopCountdown())
 								>
 									<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
 									<span>此邮件包含附件（附件可能已过期或不可下载）</span>
+								</div>
+							</div>
+
+							<!-- 回复邮件（经 Resend 从当前临时邮箱发出，仅能回复给原始发件人） -->
+							<div class="bg-slate-900 rounded-2xl border border-slate-800/50 p-5 md:p-6">
+								<div class="flex items-center justify-between mb-3">
+									<div class="flex items-center gap-2 text-slate-400">
+										<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" /></svg>
+										<span class="text-xs font-semibold uppercase tracking-wider">回复</span>
+									</div>
+									<button
+										v-if="!replyOpen"
+										@click="openReply"
+										class="inline-flex items-center gap-1.5 text-xs font-medium text-nebula-300 bg-nebula-500/10 border border-nebula-500/20 hover:bg-nebula-500/20 rounded-lg px-3 py-2 transition"
+									>
+										<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" /></svg>
+										<span>写回复</span>
+									</button>
+								</div>
+								<p v-if="!replyOpen" class="text-xs text-slate-500">
+									以 <span class="font-mono-jb text-slate-300" v-text="currentAddress"></span> 回复 <span class="font-mono-jb text-slate-300" v-text="senderEmail(selectedMail?.from)"></span>
+								</p>
+								<div v-else class="space-y-3">
+									<div>
+										<label class="block text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">主题</label>
+										<input
+											v-model="replySubject"
+											type="text"
+											placeholder="回复主题"
+											class="block w-full px-3 py-2 rounded-lg bg-slate-950/60 border border-slate-700 text-slate-200 placeholder-slate-600 text-sm focus:outline-none focus:ring-1 focus:ring-nebula-500/50 transition"
+										/>
+									</div>
+									<div>
+										<label class="block text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">正文</label>
+										<textarea
+											v-model="replyText"
+											rows="6"
+											placeholder="输入回复内容…"
+											class="block w-full px-3 py-2 rounded-lg bg-slate-950/60 border border-slate-700 text-slate-200 placeholder-slate-600 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-nebula-500/50 transition resize-y"
+										></textarea>
+									</div>
+									<div class="flex items-center justify-between gap-3">
+										<p class="text-[11px] text-slate-600 min-w-0 truncate">
+											经 Resend 从 <span class="font-mono-jb text-slate-400" v-text="currentAddress"></span> 发送
+										</p>
+										<div class="flex gap-2 shrink-0">
+											<button
+												@click="closeReply"
+												class="inline-flex items-center text-xs font-medium text-slate-300 bg-slate-800/70 border border-slate-700 hover:bg-slate-800 rounded-lg px-3 py-2 transition"
+											>
+												取消
+											</button>
+											<button
+												@click="sendReply"
+												:disabled="replying"
+												class="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-gradient-to-r from-nebula-600 to-nebula-500 hover:from-nebula-500 hover:to-nebula-400 shadow-lg shadow-nebula-500/20 rounded-lg px-4 py-2 transition disabled:opacity-50"
+											>
+												<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
+												<span v-text="replying ? '发送中…' : '发送回复'"></span>
+											</button>
+										</div>
+									</div>
 								</div>
 							</div>
 						</div>

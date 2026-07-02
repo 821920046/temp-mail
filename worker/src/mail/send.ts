@@ -11,6 +11,11 @@ export interface OutboundMail {
 	subject: string
 	text: string
 	html?: string
+	// 收件人点击“回复”时回到哪个地址（通常即临时邮箱本身）
+	replyTo?: string
+	// 线程串联：原邮件的 Message-ID
+	inReplyTo?: string
+	references?: string
 }
 
 export async function sendMail(env: Env, mail: OutboundMail): Promise<void> {
@@ -22,19 +27,30 @@ export async function sendMail(env: Env, mail: OutboundMail): Promise<void> {
 }
 
 async function sendViaResend(env: Env, mail: OutboundMail): Promise<void> {
+	if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY not configured")
+
+	// 线程串联头：让回复归入原会话（多数客户端据此聚合，也利于避免被判为孤立垃圾邮件）。
+	const headers: Record<string, string> = {}
+	if (mail.inReplyTo) headers["In-Reply-To"] = mail.inReplyTo
+	if (mail.references) headers["References"] = mail.references
+
+	const payload: Record<string, unknown> = {
+		from: mail.from,
+		to: mail.to,
+		subject: mail.subject,
+		text: mail.text,
+	}
+	if (mail.html) payload.html = mail.html
+	if (mail.replyTo) payload.reply_to = mail.replyTo
+	if (Object.keys(headers).length) payload.headers = headers
+
 	const res = await fetch("https://api.resend.com/emails", {
 		method: "POST",
 		headers: {
 			Authorization: `Bearer ${env.RESEND_API_KEY}`,
 			"Content-Type": "application/json",
 		},
-		body: JSON.stringify({
-			from: mail.from,
-			to: mail.to,
-			subject: mail.subject,
-			text: mail.text,
-			html: mail.html,
-		}),
+		body: JSON.stringify(payload),
 	})
 	if (!res.ok) throw new Error(`Resend failed: ${res.status} ${await res.text()}`)
 }

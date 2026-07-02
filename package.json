@@ -1,6 +1,6 @@
 {
   "name": "temp-mail",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "private": true,
   "description": "基于 Cloudflare 纯免费额度的临时域名邮箱（Workers/D1/KV/R2/Email Routing）— 反滥用与安全加固优化版",
   "license": "MIT",
